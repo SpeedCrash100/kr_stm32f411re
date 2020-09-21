@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-struct Queue;
+typedef struct Queue Queue;
 
 /**
  * Creates empty static byte queue.

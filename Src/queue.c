@@ -15,7 +15,8 @@ struct Queue {
 Queue Queue_Create(uint8_t* buffer, uint32_t capacity)
 {
 	//TODO Implement
-	return Queue();
+	Queue outQueue;
+	return outQueue;
 }
 
 Boolean Queue_Push(Queue* queue, uint8_t value)

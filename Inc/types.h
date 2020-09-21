@@ -1,10 +1,13 @@
 #ifndef TYPES_H_
 #define TYPES_H_
 
-enum Boolean {
+#include <stdint.h>
+
+typedef enum Boolean {
 	FALSE = 0,
 	TRUE
-};
+} Boolean;
+
 
 
 
