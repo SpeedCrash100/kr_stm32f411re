@@ -9,6 +9,13 @@ typedef enum Boolean {
 } Boolean;
 
 
+typedef enum MainStates {
+	Stopped,
+	Waiting,
+	Started,
+	Stopping
+} MainStates;
+
 
 
 #endif /* TYPES_H_ */
