@@ -1,8 +1,10 @@
 #include "maincontoller.h"
 #include "stm32f4xx_hal.h"
+#include "adc.h"
 
 struct {
 	MainStates state;
+
 
 } mainContoller;
 
@@ -15,13 +17,20 @@ Boolean MainContoller_Init()
 		return FALSE;
 	if(!Init_IRQ())
 		return FALSE;
+
+	if(!ADC_Init())
+			return FALSE;
+
+
 	return TRUE;
 }
 
 void MainContoller_Loop()
 {
+	uint16_t result = 0;
 	while(TRUE)
 	{
+		result = ADC_Get();
 		//TODO! Loop
 	}
 }
