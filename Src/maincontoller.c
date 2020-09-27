@@ -2,6 +2,7 @@
 #include "stm32f4xx_hal.h"
 #include "adc.h"
 #include "display.h"
+#include "pwm.h"
 
 struct {
 	MainStates state;
@@ -25,6 +26,9 @@ Boolean MainContoller_Init()
 	if(!Display_Init())
 		return FALSE;
 
+	if(!PWM_Init())
+		return FALSE;
+
 
 	return TRUE;
 }
@@ -32,11 +36,16 @@ Boolean MainContoller_Init()
 void MainContoller_Loop()
 {
 	uint16_t result = 0;
+
+	PWM_Start();
+
 	while(TRUE)
 	{
 		result = ADC_Get();
 		Display_SetFreq(result);
 		Display_SetBufferUsage(result);
+		PWM_AddWidth(result);
+
 		//TODO! Loop
 	}
 }
