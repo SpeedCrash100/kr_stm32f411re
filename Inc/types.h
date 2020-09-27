@@ -16,6 +16,11 @@ typedef enum MainStates {
 	Stopping
 } MainStates;
 
+typedef struct {
+	int32_t x;
+	int32_t y;
+} Point;
+
 
 
 #endif /* TYPES_H_ */

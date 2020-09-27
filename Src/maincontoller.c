@@ -1,6 +1,7 @@
 #include "maincontoller.h"
 #include "stm32f4xx_hal.h"
 #include "adc.h"
+#include "display.h"
 
 struct {
 	MainStates state;
@@ -19,7 +20,10 @@ Boolean MainContoller_Init()
 		return FALSE;
 
 	if(!ADC_Init())
-			return FALSE;
+		return FALSE;
+
+	if(!Display_Init())
+		return FALSE;
 
 
 	return TRUE;
@@ -31,6 +35,8 @@ void MainContoller_Loop()
 	while(TRUE)
 	{
 		result = ADC_Get();
+		Display_SetFreq(result);
+		Display_SetBufferUsage(result);
 		//TODO! Loop
 	}
 }
