@@ -3,10 +3,13 @@
 #include "adc.h"
 #include "display.h"
 #include "pwm.h"
+#include "uart.h"
+#include <stdlib.h>
 
 struct {
 	MainStates state;
-
+	Boolean uart_working;
+	Boolean uart_ready;
 
 } mainContoller;
 
@@ -29,14 +32,27 @@ Boolean MainContoller_Init()
 	if(!PWM_Init())
 		return FALSE;
 
+	if(!UART_Init())
+		return FALSE;
+
+	mainContoller.state = Stopped;
+	mainContoller.uart_working = FALSE;
+	mainContoller.uart_ready = FALSE;
 
 	return TRUE;
+}
+
+void UartCallback()
+{
+	mainContoller.uart_working = FALSE;
+	mainContoller.uart_ready = TRUE;
+	UART_Free();
 }
 
 void MainContoller_Loop()
 {
 	uint16_t result = 0;
-
+	uint8_t uart_package[1024] = {0};
 	PWM_Start();
 
 	while(TRUE)
@@ -44,7 +60,31 @@ void MainContoller_Loop()
 		result = ADC_Get();
 		Display_SetFreq(result);
 		Display_SetBufferUsage(result);
-		PWM_AddWidth(result);
+
+		if(!mainContoller.uart_working)
+		{
+			if(UART_Acquire())
+			{
+				if(UART_StartReceive(&UartCallback, uart_package, sizeof(uart_package)))
+				{
+					mainContoller.uart_working = TRUE;
+					Display_SetState(Waiting);
+				}
+			}
+		}
+
+		if(mainContoller.uart_ready)
+		{
+			mainContoller.uart_ready = FALSE;
+			for (int i = 0; i < 1024; i++)
+			{
+				PWM_AddWidth(uart_package[i]);
+			}
+			Display_SetState(Started);
+			memset(uart_package, 0, sizeof(uart_package));
+		}
+
+
 
 		//TODO! Loop
 	}

@@ -2,8 +2,8 @@
 #include "stm32f4xx_hal.h"
 
 I2C_HandleTypeDef i2c;
-Boolean acquired;
-Boolean in_progress;
+Boolean i2c_acquired;
+Boolean i2c_in_progress;
 uint16_t address;
 
 Boolean I2C_Init()
@@ -37,8 +37,8 @@ Boolean I2C_Init()
 	}
 
 
-	acquired = FALSE;
-	in_progress = FALSE;
+	i2c_acquired = FALSE;
+	i2c_in_progress = FALSE;
 	address = 0x3C << 1;
 
 	return TRUE;
@@ -46,19 +46,19 @@ Boolean I2C_Init()
 
 Boolean I2C_Acquire()
 {
-	if(acquired)
+	if(i2c_acquired)
 		return FALSE;
-	acquired = TRUE;
+	i2c_acquired = TRUE;
 	return TRUE;
 }
 void I2C_Free()
 {
-	acquired = FALSE;
+	i2c_acquired = FALSE;
 }
 
 Boolean I2C_SendCommand(uint8_t cmd)
 {
-	if (!acquired)
+	if (!i2c_acquired)
 		return FALSE;
 
 	HAL_StatusTypeDef status = HAL_I2C_Mem_Write(&i2c, address, 0x00, I2C_MEMADD_SIZE_8BIT, &cmd, 1, 1000);
@@ -70,7 +70,7 @@ Boolean I2C_SendCommand(uint8_t cmd)
 }
 Boolean I2C_SendData(uint8_t* data, uint16_t size)
 {
-	if (!acquired)
+	if (!i2c_acquired)
 		return FALSE;
 
 	HAL_StatusTypeDef status = HAL_I2C_Mem_Write(&i2c, address, 0x40, I2C_MEMADD_SIZE_8BIT, data, size, 1000);

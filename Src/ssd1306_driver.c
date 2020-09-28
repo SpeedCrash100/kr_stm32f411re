@@ -29,9 +29,8 @@ void SendData(uint8_t* data, uint16_t size)
 		__NOP();
 	}
 
-	if(!I2C_SendData(data, size))
+	while(!I2C_SendData(data, size))
 	{
-		while(TRUE);
 	}
 
 	I2C_Free();
