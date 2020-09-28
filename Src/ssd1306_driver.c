@@ -1,45 +1,49 @@
 #include "ssd1306_driver.h"
 #include "stm32f4xx_hal.h"
 #include "i2c.h"
-#include <stdlib.h>
+#include <string.h>
 #include "fonts.h"
 
-uint8_t renderBuffer[128*64/8];
+struct SSD1306_Driver {
+	I2C* connector;
+
+	uint8_t renderBuffer[128*64/8];
+};
+
+Boolean g_SSD1306_initialized = FALSE;
+SSD1306_Driver g_SSD1306_Driver = {0};
 
 
-void SendCmd(uint8_t cmd)
-{
-	while(!I2C_Acquire())
+void SendCmd(uint8_t cmd) {
+	while(!I2C_Acquire(g_SSD1306_Driver.connector))
 	{
 		__NOP();
 	}
 
-	if(!I2C_SendCommand(cmd))
-	{
-		while(TRUE);
-	}
-
-	I2C_Free();
+	I2C_SendCommand(g_SSD1306_Driver.connector, cmd);
+	I2C_Free(g_SSD1306_Driver.connector);
 }
 
-void SendData(uint8_t* data, uint16_t size)
-{
-	while(!I2C_Acquire())
+void SendDataCallback() {
+	I2C_Free(g_SSD1306_Driver.connector);
+}
+
+void SendData(uint8_t* data, uint16_t size) {
+	while(!I2C_Acquire(g_SSD1306_Driver.connector))
 	{
 		__NOP();
 	}
 
-	while(!I2C_SendData(data, size))
-	{
-	}
-
-	I2C_Free();
+	I2C_SendData(g_SSD1306_Driver.connector, SendDataCallback, data, size);
 }
 
 
-Boolean SSD1306_Init()
-{
-	I2C_Init();
+SSD1306_Driver* SSD1306_Init(I2C* i2c_hnd) {
+	if(g_SSD1306_initialized)
+		return &g_SSD1306_Driver;
+
+	g_SSD1306_Driver.connector = i2c_hnd;
+
 
 	HAL_Delay(100); // Recommended delay for display starting up
 	//Set Power Reset for normal screen operation
@@ -95,15 +99,16 @@ Boolean SSD1306_Init()
 	SendCmd(0xAF); /*display ON*/
 
 
-	memset(renderBuffer, 0, sizeof(renderBuffer));
-	SendData(renderBuffer, sizeof(renderBuffer));
+	memset(g_SSD1306_Driver.renderBuffer, 0, sizeof(g_SSD1306_Driver.renderBuffer));
+	SendData(g_SSD1306_Driver.renderBuffer, sizeof(g_SSD1306_Driver.renderBuffer));
 
-	return TRUE;
+	g_SSD1306_initialized = TRUE;
+
+	return &g_SSD1306_Driver;
 }
 
 
-void SSD1306_Clear(Point p1, Point p2)
-{
+void SSD1306_Clear(SSD1306_Driver* hnd, Point p1, Point p2) {
 	if (p1.y > p2.y)
 	{
 		int32_t tmp = p1.y;
@@ -121,15 +126,14 @@ void SSD1306_Clear(Point p1, Point p2)
 	for (int32_t x = p1.x; x < p2.x; x++) {
 		for (int32_t y = p1.y; y < p2.y; y++) {
 			int32_t page = y / 8;
-			uint8_t* byte = &renderBuffer[page*128+x];
+			uint8_t* byte = &hnd->renderBuffer[page*128+x];
 			(*byte) &= ~(1 << (y % 8));
 		}
 	}
 
 }
 
-void SSD1306_DrawRectangle(Point p1, Point p2)
-{
+void SSD1306_DrawRectangle(SSD1306_Driver* hnd, Point p1, Point p2) {
 	if (p1.y > p2.y)
 	{
 		int32_t tmp = p1.y;
@@ -148,27 +152,26 @@ void SSD1306_DrawRectangle(Point p1, Point p2)
 
 	for (int32_t x = p1.x; x < p2.x; x++) {
 		int32_t page1 = p1.y / 8;
-		uint8_t* byte1 = &renderBuffer[page1*128+x];
+		uint8_t* byte1 = &hnd->renderBuffer[page1*128+x];
 		(*byte1) |= 1 << (p1.y % 8);
 
 		int32_t page2 = p2.y / 8;
-		uint8_t* byte2 = &renderBuffer[page2*128+x];
+		uint8_t* byte2 = &hnd->renderBuffer[page2*128+x];
 		(*byte2) |= 1 << (p2.y % 8);
 	}
 
 	//Vertical
 	for (int32_t y = p1.y; y < p2.y; y++) {
 		int32_t page = y / 8;
-		uint8_t* byte1 = &renderBuffer[page*128+p1.x];
+		uint8_t* byte1 = &hnd->renderBuffer[page*128+p1.x];
 		(*byte1) |= 1 << (y % 8);
 
-		uint8_t* byte2 = &renderBuffer[page*128+p2.x];
+		uint8_t* byte2 = &hnd->renderBuffer[page*128+p2.x];
 		(*byte2) |= 1 << (y % 8);
 	}
 
 }
-void SSD1306_DrawRectangleFilled(Point p1, Point p2)
-{
+void SSD1306_DrawRectangleFilled(SSD1306_Driver* hnd,Point p1, Point p2) {
 	if (p1.y > p2.y)
 	{
 		int32_t tmp = p1.y;
@@ -186,23 +189,21 @@ void SSD1306_DrawRectangleFilled(Point p1, Point p2)
 	for (int32_t x = p1.x; x < p2.x; x++) {
 		for (int32_t y = p1.y; y < p2.y; y++) {
 			int32_t page = y / 8;
-			uint8_t* byte = &renderBuffer[page*128+x];
+			uint8_t* byte = &hnd->renderBuffer[page*128+x];
 			(*byte) |= 1 << (y % 8);
 		}
 	}
 
 }
 
-char convertChar(char ch)
-{
+char convertChar(char ch) {
 	if (ch < 32 || ch > 126)
 		return 0;
 
 	return ch - 32;
 }
 
-void SSD1306_DrawText(Point pos, char* text)
-{
+void SSD1306_DrawText(SSD1306_Driver* hnd,Point pos, char* text) {
 	sFONT font = Font12;
 	int32_t bytesForWidth = 1;
 
@@ -216,7 +217,7 @@ void SSD1306_DrawText(Point pos, char* text)
 			const uint8_t* lane = &base[y*bytesForWidth];
 
 			uint32_t page = (pos.y + y) / 8;
-			uint8_t* byte = &renderBuffer[page*128+pos.x];
+			uint8_t* byte = &hnd->renderBuffer[page*128+pos.x];
 
 			for (int x = 0; x < font.Width; x++)
 			{
@@ -237,7 +238,6 @@ void SSD1306_DrawText(Point pos, char* text)
 
 }
 
-void SSD1306_Swap()
-{
-	SendData(renderBuffer, sizeof(renderBuffer));
+void SSD1306_Swap(SSD1306_Driver* hnd) {
+	SendData(hnd->renderBuffer, sizeof(hnd->renderBuffer));
 }

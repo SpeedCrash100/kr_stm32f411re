@@ -8,8 +8,9 @@
 
 struct {
 	MainStates state;
-	Boolean uart_working;
-	Boolean uart_ready;
+
+	STM32ADC* adc;
+	Display* display;
 
 } mainContoller;
 
@@ -23,10 +24,12 @@ Boolean MainContoller_Init()
 	if(!Init_IRQ())
 		return FALSE;
 
-	if(!ADC_Init())
+	mainContoller.adc = ADC_Init();
+	if(mainContoller.adc == NULL)
 		return FALSE;
 
-	if(!Display_Init())
+	mainContoller.display = Display_Init();
+	if(mainContoller.display == NULL)
 		return FALSE;
 
 	if(!PWM_Init())
@@ -36,53 +39,20 @@ Boolean MainContoller_Init()
 		return FALSE;
 
 	mainContoller.state = Stopped;
-	mainContoller.uart_working = FALSE;
-	mainContoller.uart_ready = FALSE;
 
 	return TRUE;
-}
-
-void UartCallback()
-{
-	mainContoller.uart_working = FALSE;
-	mainContoller.uart_ready = TRUE;
-	UART_Free();
 }
 
 void MainContoller_Loop()
 {
 	uint16_t result = 0;
-	uint8_t uart_package[1024] = {0};
 	PWM_Start();
 
 	while(TRUE)
 	{
-		result = ADC_Get();
-		Display_SetFreq(result);
-		Display_SetBufferUsage(result);
-
-		if(!mainContoller.uart_working)
-		{
-			if(UART_Acquire())
-			{
-				if(UART_StartReceive(&UartCallback, uart_package, sizeof(uart_package)))
-				{
-					mainContoller.uart_working = TRUE;
-					Display_SetState(Waiting);
-				}
-			}
-		}
-
-		if(mainContoller.uart_ready)
-		{
-			mainContoller.uart_ready = FALSE;
-			for (int i = 0; i < 1024; i++)
-			{
-				PWM_AddWidth(uart_package[i]);
-			}
-			Display_SetState(Started);
-			memset(uart_package, 0, sizeof(uart_package));
-		}
+		result = ADC_Get(mainContoller.adc);
+		Display_SetFreq(mainContoller.display, result);
+		Display_SetBufferUsage(mainContoller.display, result);
 
 
 
