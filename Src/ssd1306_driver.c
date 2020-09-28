@@ -20,7 +20,9 @@ void SendCmd(uint8_t cmd) {
 		__NOP();
 	}
 
-	I2C_SendCommand(g_SSD1306_Driver.connector, cmd);
+	while(!I2C_SendCommand(g_SSD1306_Driver.connector, cmd)) {
+		__NOP();
+	}
 	I2C_Free(g_SSD1306_Driver.connector);
 }
 

@@ -3,11 +3,12 @@
 
 #include "types.h"
 
+typedef struct UART UART;
 typedef void (*UARTReadCallback)(void);
 
-Boolean UART_Init();
-Boolean UART_StartReceive(UARTReadCallback callback, uint8_t* buffer, uint32_t size);
-Boolean UART_Acquire();
-void UART_Free();
+UART* UART_Init();
+Boolean UART_StartReceive(UART*, UARTReadCallback, UARTReadCallback, uint8_t*, uint32_t);
+Boolean UART_Acquire(UART*);
+void UART_Free(UART*);
 
 #endif /* UART_H_ */

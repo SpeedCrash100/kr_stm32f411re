@@ -1,58 +1,79 @@
 #include "uart.h"
 #include "stm32f4xx_hal.h"
 
-Boolean acquired;
-Boolean in_progress;
-UART_HandleTypeDef uart = {0};
-DMA_HandleTypeDef uart_dma = {0};
+struct UART {
+	Boolean acquired;
+	Boolean in_progress;
 
-UARTReadCallback currentHandler;
+	UART_HandleTypeDef hal_uart;
+	DMA_HandleTypeDef hal_dma_uart;
 
-Boolean UART_Init()
+	UARTReadCallback currentHandlerHalf;
+	UARTReadCallback currentHandlerFull;
+};
+
+Boolean g_UART_initialized = FALSE;
+UART g_UART = {0};
+
+
+
+UART* UART_Init()
 {
-	uart.Instance = USART2;
-	uart.Init.BaudRate = 115200;
-	uart.Init.WordLength = USART_WORDLENGTH_8B;
-	uart.Init.StopBits = USART_STOPBITS_2;
-	uart.Init.Parity = USART_PARITY_NONE;
-	uart.Init.Mode = USART_MODE_TX_RX;
-	uart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-	uart.Init.OverSampling = UART_OVERSAMPLING_16;
-	if (HAL_UART_Init(&uart) != HAL_OK)
-		return FALSE;
+	if(g_UART_initialized)
+		return &g_UART;
+
+	UART_HandleTypeDef* uart = &g_UART.hal_uart;
+
+	uart->Instance = USART2;
+	uart->Init.BaudRate = 115200;
+	uart->Init.WordLength = USART_WORDLENGTH_8B;
+	uart->Init.StopBits = USART_STOPBITS_2;
+	uart->Init.Parity = USART_PARITY_NONE;
+	uart->Init.Mode = USART_MODE_TX_RX;
+	uart->Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	uart->Init.OverSampling = UART_OVERSAMPLING_16;
+	if (HAL_UART_Init(uart) != HAL_OK)
+		return NULL;
 
 	HAL_NVIC_SetPriority(USART2_IRQn, 0, 0);
 	HAL_NVIC_EnableIRQ(USART2_IRQn);
 
 	USART2->CR3 |= USART_CR3_ONEBIT; //Ignore noises!
 
+	g_UART.acquired = FALSE;
+	g_UART.currentHandlerHalf = NULL;
+	g_UART.currentHandlerFull = NULL;
+	g_UART.in_progress = FALSE;
+	g_UART_initialized = TRUE;
+
+	return &g_UART;
+}
+
+Boolean UART_StartReceive(UART* hnd, UARTReadCallback callbackHalf, UARTReadCallback callbackFull, uint8_t* buffer, uint32_t size)
+{
+	if(hnd->in_progress || !hnd->acquired)
+		return FALSE;
+
+	hnd->currentHandlerHalf = callbackHalf;
+	hnd->currentHandlerFull = callbackFull;
+	hnd->in_progress = TRUE;
+	if(HAL_UART_Receive_DMA(&hnd->hal_uart, buffer, size) != HAL_OK)
+		return FALSE;
+
 	return TRUE;
 }
 
-Boolean UART_StartReceive(UARTReadCallback callback, uint8_t* buffer, uint32_t size)
+Boolean UART_Acquire(UART* hnd)
 {
-	if(in_progress || !acquired)
+	if(hnd->acquired)
 		return FALSE;
-
-	currentHandler = callback;
-	in_progress = TRUE;
-	if(HAL_UART_Receive_DMA(&uart, buffer, size) != HAL_OK)
-		return FALSE;
-
+	hnd->acquired = TRUE;
 	return TRUE;
 }
 
-Boolean UART_Acquire()
+void UART_Free(UART* hnd)
 {
-	if(acquired)
-		return FALSE;
-	acquired = TRUE;
-	return TRUE;
-}
-
-void UART_Free()
-{
-	acquired = FALSE;
+	hnd->acquired = FALSE;
 }
 
 void HAL_UART_MspInit(UART_HandleTypeDef* huart)
@@ -71,19 +92,21 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
 		HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 		__HAL_RCC_DMA1_CLK_ENABLE();
-		uart_dma.Instance = DMA1_Stream5;
-		uart_dma.Init.Channel = DMA_CHANNEL_4;
-		uart_dma.Init.Direction = DMA_PERIPH_TO_MEMORY;
-		uart_dma.Init.PeriphInc = DMA_PINC_DISABLE;
-		uart_dma.Init.MemInc = DMA_MINC_ENABLE;
-		uart_dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-		uart_dma.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-		uart_dma.Init.Priority = DMA_PRIORITY_MEDIUM;
-		uart_dma.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
-		if(HAL_DMA_Init(&uart_dma) != HAL_OK)
+		DMA_HandleTypeDef* uart_dma = &g_UART.hal_dma_uart;
+
+		uart_dma->Instance = DMA1_Stream5;
+		uart_dma->Init.Channel = DMA_CHANNEL_4;
+		uart_dma->Init.Direction = DMA_PERIPH_TO_MEMORY;
+		uart_dma->Init.PeriphInc = DMA_PINC_DISABLE;
+		uart_dma->Init.MemInc = DMA_MINC_ENABLE;
+		uart_dma->Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+		uart_dma->Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+		uart_dma->Init.Priority = DMA_PRIORITY_MEDIUM;
+		uart_dma->Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+		if(HAL_DMA_Init(uart_dma) != HAL_OK)
 			return;
 
-		__HAL_LINKDMA(huart, hdmarx, uart_dma);
+		__HAL_LINKDMA(huart, hdmarx, *uart_dma);
 
 		HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
 		HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
@@ -92,29 +115,23 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
 
 void DMA1_Stream5_IRQHandler(void)
 {
-	HAL_DMA_IRQHandler(&uart_dma);
+	HAL_DMA_IRQHandler(&g_UART.hal_dma_uart);
 }
 
 void USART2_IRQHandler(void)
 {
-	HAL_UART_IRQHandler(&uart);
+	HAL_UART_IRQHandler(&g_UART.hal_uart);
 }
 
-void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
-{
-	in_progress = TRUE;
+void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart) {
+	if(g_UART.currentHandlerHalf)
+		g_UART.currentHandlerHalf();
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if(currentHandler)
-		currentHandler();
+	if(g_UART.currentHandlerFull)
+		g_UART.currentHandlerFull();
 
-	in_progress = FALSE;
-}
-
-void UART_DMAReceiveCplt(DMA_HandleTypeDef *huart_dma)
-{
-
-
+	g_UART.in_progress = FALSE;
 }

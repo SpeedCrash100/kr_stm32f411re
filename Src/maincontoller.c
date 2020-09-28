@@ -11,6 +11,13 @@ struct {
 
 	STM32ADC* adc;
 	Display* display;
+	PWM* pwm;
+	UART* uart;
+
+
+	Boolean uart_working;
+	Boolean uart_half;
+	Boolean uart_full;
 
 } mainContoller;
 
@@ -32,28 +39,76 @@ Boolean MainContoller_Init()
 	if(mainContoller.display == NULL)
 		return FALSE;
 
-	if(!PWM_Init())
+	mainContoller.pwm = PWM_Init();
+	if(!mainContoller.pwm)
 		return FALSE;
 
-	if(!UART_Init())
+	mainContoller.uart = UART_Init();
+	if(!mainContoller.uart)
 		return FALSE;
 
 	mainContoller.state = Stopped;
+	mainContoller.uart_working = FALSE;
+	mainContoller.uart_half = FALSE;
+	mainContoller.uart_full = FALSE;
 
 	return TRUE;
+}
+
+void UartHalf() {
+	mainContoller.uart_half = TRUE;
+}
+
+void UartFull() {
+	mainContoller.uart_full = TRUE;
+	mainContoller.uart_working = FALSE;
 }
 
 void MainContoller_Loop()
 {
 	uint16_t result = 0;
-	PWM_Start();
+
+
+
+	uint8_t uartPackage[10*1024];
+	int uartPackageSize = sizeof(uartPackage);
+	int uartPackageElCount = uartPackageSize/sizeof(uartPackage[0]);
 
 	while(TRUE)
 	{
-		result = ADC_Get(mainContoller.adc);
-		Display_SetFreq(mainContoller.display, result);
+		result = ADC_Get(mainContoller.adc) * 100 / 8192;
+
+
+		int32_t realF = PWM_SetFreq(mainContoller.pwm, 2500 + 150 * result);
+
+		Display_SetFreq(mainContoller.display, realF);
 		Display_SetBufferUsage(mainContoller.display, result);
 
+		if (!mainContoller.uart_working) {
+			if (UART_Acquire(mainContoller.uart)) {
+				if(UART_StartReceive(mainContoller.uart, UartHalf, UartFull, uartPackage, sizeof(uartPackage))) {
+					mainContoller.uart_working = TRUE;
+					Display_SetState(mainContoller.display, Waiting);
+				}
+			}
+		}
+
+		if (mainContoller.uart_half) {
+			mainContoller.uart_half = FALSE;
+			Display_SetState(mainContoller.display, Started);
+			for (int i = 0; i < uartPackageElCount / 2; i++) {
+				PWM_AddWidth(mainContoller.pwm, uartPackage[i]  * 2 / 10);
+			}
+		}
+
+		if (mainContoller.uart_full) {
+			mainContoller.uart_full = FALSE;
+			for (int i = uartPackageElCount / 2; i < uartPackageElCount; i++) {
+				PWM_AddWidth(mainContoller.pwm, uartPackage[i] * 2 / 10);
+			}
+			UART_Free(mainContoller.uart);
+			PWM_Start(mainContoller.pwm);
+		}
 
 
 		//TODO! Loop

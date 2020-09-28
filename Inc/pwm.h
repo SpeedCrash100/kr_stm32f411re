@@ -3,12 +3,14 @@
 
 #include "types.h"
 
-Boolean PWM_Init();
-void PWM_SetFreq(int32_t freq);
-void PWM_AddWidth(uint8_t width);
-void PWM_Start();
-void PWM_Stop();
-void PWM_GetBufferUsage(int32_t* usage);
+typedef struct PWM PWM;
+
+PWM* PWM_Init();
+int32_t PWM_SetFreq(PWM*, int32_t freq);
+void PWM_AddWidth(PWM*, uint8_t width);
+void PWM_Start(PWM*);
+void PWM_Stop(PWM*);
+void PWM_GetBufferUsage(PWM*, int32_t* usage);
 
 
 #endif /* PWM_H_ */

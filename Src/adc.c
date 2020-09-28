@@ -1,5 +1,6 @@
 #include "adc.h"
 #include "stm32f4xx_hal.h"
+#include <stdlib.h>
 
 struct STM32ADC {
 	ADC_HandleTypeDef hal_adc_handle;
@@ -38,7 +39,7 @@ STM32ADC* ADC_Init() {
 	adc->Init.NbrOfConversion = 1;
 	adc->Init.DMAContinuousRequests = ENABLE;
 	adc->Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-	adc->Init.Resolution = ADC_RESOLUTION_8B;
+	adc->Init.Resolution = ADC_RESOLUTION_12B;
 	if(HAL_ADC_Init(adc) != HAL_OK)
 	{
 		return NULL;
@@ -63,7 +64,8 @@ uint16_t ADC_Get(STM32ADC* handle)
 {
 	if (!handle)
 		return 0;
-	return (uint16_t)handle->adc_result;
+
+	return handle->adc_result;
 }
 
 void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
