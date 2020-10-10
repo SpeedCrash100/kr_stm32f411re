@@ -2,6 +2,8 @@
 #include "stm32f4xx_hal.h"
 #include <math.h>
 
+#define BUFFER_SIZE 102400
+
 struct PWM {
 	TIM_HandleTypeDef tim1;
 	TIM_OC_InitTypeDef chanConfig;
@@ -10,7 +12,11 @@ struct PWM {
 	uint32_t freq;
 
 	Boolean valueCaptured;
-	uint8_t buffer;
+	uint8_t buffer[BUFFER_SIZE];
+
+	//TMP
+	uint32_t bufferPos;
+	uint32_t bufferWritePos;
 };
 
 Boolean g_PWM_initialized = FALSE;
@@ -48,21 +54,29 @@ PWM* PWM_Init()
 
 	g_PWM.freq = 1000;
 	g_PWM.width = 0;
+
+	//TODO! Queue
 	g_PWM.valueCaptured = TRUE;
+	g_PWM.bufferPos = 0;
+	g_PWM.bufferWritePos = 0;
+
+
 	g_PWM_initialized = TRUE;
+
+
 
 	return &g_PWM;
 }
 
 int32_t PWM_SetFreq(PWM* hnd, int32_t freq)
 {
-	uint32_t prescal = 38;
-	uint32_t realFreq = 100000000 / ( (256+1)*(prescal+1) );
+	uint32_t prescal = 1;
+	uint32_t realFreq = SystemCoreClock / ( (256+1)*(prescal+1) );
 	uint32_t delta = abs(freq - realFreq);
 	while(prescal < 65535)
 	{
 		prescal++;
-		realFreq = 100000000 / ( (256+1)*(prescal+1) );
+		realFreq = SystemCoreClock / ( (256+1)*(prescal+1) );
 		uint32_t newDelta = abs(freq - realFreq);
 		if(newDelta < delta) {
 			delta = newDelta;
@@ -73,17 +87,15 @@ int32_t PWM_SetFreq(PWM* hnd, int32_t freq)
 	}
 
 	__HAL_TIM_SET_PRESCALER(&hnd->tim1, prescal);
-	return realFreq = 100000000 / ( (256+1)*(prescal+1) );
+	return realFreq = SystemCoreClock / ( (256+1)*(prescal+1) );
 }
 
 void PWM_AddWidth(PWM* hnd, uint8_t width)
 {
-	if (hnd->valueCaptured)	{
-		hnd->buffer = width;
-		hnd->valueCaptured = FALSE;
-	} else {
-		hnd->buffer += (width - hnd->buffer) * 100 / 1000;
-	}
+
+	hnd->buffer[hnd->bufferWritePos] = width;
+	hnd->bufferWritePos++;
+	hnd->bufferWritePos %= BUFFER_SIZE;
 
 //	__HAL_TIM_SET_COMPARE(&hnd->tim1, TIM_CHANNEL_1, width);
 }
@@ -125,8 +137,9 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
 void TIM1_UP_TIM10_IRQHandler() {
 	__HAL_TIM_CLEAR_IT(&g_PWM.tim1, TIM_IT_UPDATE);
 
+	__HAL_TIM_SET_COMPARE(&g_PWM.tim1, TIM_CHANNEL_1, g_PWM.buffer[g_PWM.bufferPos]);
+	g_PWM.bufferPos++;
+	g_PWM.bufferPos %= BUFFER_SIZE;
 	g_PWM.valueCaptured = TRUE;
-
-	__HAL_TIM_SET_COMPARE(&g_PWM.tim1, TIM_CHANNEL_1, g_PWM.buffer);
 }
 
