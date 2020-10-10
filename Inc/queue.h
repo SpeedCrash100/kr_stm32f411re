@@ -5,6 +5,16 @@
 
 typedef struct Queue Queue;
 
+struct Queue {
+	uint8_t* buffer;
+	uint32_t size;
+	uint32_t capacity;
+
+	uint32_t frontOfQueue;
+	uint32_t backOfQueue;
+
+};
+
 /**
  * Creates empty static byte queue.
  * \param buffer The buffer is used for storing bytes

@@ -8,8 +8,8 @@ struct UART {
 	UART_HandleTypeDef hal_uart;
 	DMA_HandleTypeDef hal_dma_uart;
 
-	UARTReadCallback currentHandlerHalf;
-	UARTReadCallback currentHandlerFull;
+	UARTReadHalfCallback currentHandlerHalf;
+	UARTReadFullCallback currentHandlerFull;
 };
 
 Boolean g_UART_initialized = FALSE;
@@ -49,7 +49,7 @@ UART* UART_Init()
 	return &g_UART;
 }
 
-Boolean UART_StartReceive(UART* hnd, UARTReadCallback callbackHalf, UARTReadCallback callbackFull, uint8_t* buffer, uint32_t size)
+Boolean UART_StartReceive(UART* hnd, UARTReadHalfCallback callbackHalf, UARTReadFullCallback callbackFull, uint8_t* buffer, uint32_t size)
 {
 	if(hnd->in_progress || !hnd->acquired)
 		return FALSE;
@@ -131,7 +131,14 @@ void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart) {
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(g_UART.currentHandlerFull)
-		g_UART.currentHandlerFull();
+		g_UART.currentHandlerFull(FALSE);
+
+	g_UART.in_progress = FALSE;
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart){
+	if(g_UART.currentHandlerFull)
+			g_UART.currentHandlerFull(TRUE);
 
 	g_UART.in_progress = FALSE;
 }

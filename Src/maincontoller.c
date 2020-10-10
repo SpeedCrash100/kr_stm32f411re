@@ -59,7 +59,17 @@ void UartHalf() {
 	mainContoller.uart_half = TRUE;
 }
 
-void UartFull() {
+void UartFull(Boolean errored) {
+	if (errored) {
+		mainContoller.uart_working = FALSE;
+		mainContoller.uart_full = FALSE;
+		mainContoller.uart_half = FALSE;
+
+		while(1) {
+			__NOP();
+		}
+	}
+
 	mainContoller.uart_full = TRUE;
 	mainContoller.uart_working = FALSE;
 }
@@ -97,14 +107,14 @@ void MainContoller_Loop()
 			mainContoller.uart_half = FALSE;
 			Display_SetState(mainContoller.display, Started);
 			for (int i = 0; i < uartPackageElCount / 2; i++) {
-				PWM_AddWidth(mainContoller.pwm, uartPackage[i]  * 2 / 10);
+				PWM_AddWidth(mainContoller.pwm, uartPackage[i]);
 			}
 		}
 
 		if (mainContoller.uart_full) {
 			mainContoller.uart_full = FALSE;
 			for (int i = uartPackageElCount / 2; i < uartPackageElCount; i++) {
-				PWM_AddWidth(mainContoller.pwm, uartPackage[i] * 2 / 10);
+				PWM_AddWidth(mainContoller.pwm, uartPackage[i]);
 			}
 			UART_Free(mainContoller.uart);
 			PWM_Start(mainContoller.pwm);
@@ -124,15 +134,16 @@ Boolean Init_RCC()
 		return FALSE;
 	}
 
+	__HAL_RCC_GPIOH_CLK_ENABLE(); // For HSE
+
 	// Init clocks
 	RCC_ClkInitTypeDef clkInitStruct = {0};
 	RCC_OscInitTypeDef oscInitStruct = {0};
 
-	oscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-	oscInitStruct.HSEState = RCC_HSE_OFF;
-	oscInitStruct.HSIState = RCC_HSI_ON;
+	oscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+	oscInitStruct.HSEState = RCC_HSE_ON;
 	oscInitStruct.PLL.PLLState = RCC_PLL_ON;
-	oscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+	oscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
 	oscInitStruct.PLL.PLLM = 8;
 	oscInitStruct.PLL.PLLN = 100;
 	oscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
@@ -148,11 +159,15 @@ Boolean Init_RCC()
 	clkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
 	clkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
 	clkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-	HAL_RCC_ClockConfig(&clkInitStruct, FLASH_LATENCY_4);
+	HAL_RCC_ClockConfig(&clkInitStruct, FLASH_LATENCY_1);
 	if (status != HAL_OK)
 	{
 		return FALSE;
 	}
+
+	HAL_RCC_MCOConfig(RCC_MCO2, RCC_MCO2SOURCE_SYSCLK, RCC_MCODIV_5);
+
+	SystemCoreClockUpdate();
 
 	return TRUE;
 }

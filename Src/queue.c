@@ -1,17 +1,6 @@
 #include "queue.h"
 
 
-struct Queue {
-	uint8_t* buffer;
-	uint32_t size;
-	uint32_t capacity;
-
-	uint32_t frontOfQueue;
-	uint32_t backOfQueue;
-
-};
-
-
 Queue Queue_Create(uint8_t* buffer, uint32_t capacity)
 {
 	//TODO Implement
