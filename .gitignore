@@ -116,3 +116,5 @@ dkms.conf
 Debug
 Release
 build
+
+*.user
