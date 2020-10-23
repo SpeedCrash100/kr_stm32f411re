@@ -17,8 +17,9 @@ add_subdirectory(CMSIS)
 add_subdirectory(STM32F4xx_HAL_Driver)
 
 file(GLOB_RECURSE SOURCES "Src/*.c")
+file(GLOB_RECURSE HEADERS "Inc/*.h")
 
-add_executable(kr_stm32f411re.elf ${SOURCES})
+add_executable(kr_stm32f411re.elf ${SOURCES} ${HEADERS})
 target_include_directories(kr_stm32f411re.elf PRIVATE Inc)
 target_link_libraries(kr_stm32f411re.elf PRIVATE startuplib hal)
 
