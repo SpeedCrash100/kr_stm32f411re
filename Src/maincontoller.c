@@ -4,6 +4,7 @@
 
 #include "adc.h"
 #include "display.h"
+#include "keypad.h"
 #include "pwm.h"
 #include "stm32f4xx_hal.h"
 #include "uart.h"
@@ -15,6 +16,7 @@ struct {
   Display* display;
   PWM* pwm;
   UART* uart;
+  Keypad* keypad;
 
   Boolean uart_working;
   Boolean uart_half;
@@ -29,6 +31,8 @@ MainStates MainController_WaitingState(uint8_t* uartPackage,
                                        int32_t sizeOfUart);
 MainStates MainController_StartedState(uint8_t* uartPackage,
                                        int32_t sizeOfUart);
+
+MainStates MainController_StoppingState();
 
 Boolean MainContoller_Init() {
   if (!Init_RCC()) return FALSE;
@@ -46,6 +50,9 @@ Boolean MainContoller_Init() {
   mainContoller.uart = UART_Init();
   if (!mainContoller.uart) return FALSE;
 
+  mainContoller.keypad = Keypad_Init();
+  if (!mainContoller.keypad) return FALSE;
+
   mainContoller.state = Stopped;
   mainContoller.uart_working = FALSE;
   mainContoller.uart_half = FALSE;
@@ -54,9 +61,15 @@ Boolean MainContoller_Init() {
   return TRUE;
 }
 
-void UartHalf() { mainContoller.uart_half = TRUE; }
+void UartHalf() {
+  if (mainContoller.uart_working) {
+    mainContoller.uart_half = TRUE;
+  }
+}
 
 void UartFull(Boolean errored) {
+  if (!mainContoller.uart_working) return;
+
   if (errored) {
     mainContoller.uart_working = FALSE;
     mainContoller.uart_full = FALSE;
@@ -90,9 +103,9 @@ void MainContoller_Loop() {
 
     switch (mainContoller.state) {
       case Stopped:
-        // TODO capture buttons
-
-        mainContoller.state = Waiting;
+        if (Keypad_GetState(mainContoller.keypad, KeyStartStop) == Clicked) {
+          mainContoller.state = Waiting;
+        }
         break;
       case Waiting:
         mainContoller.state =
@@ -103,10 +116,9 @@ void MainContoller_Loop() {
             MainController_StartedState(uartPackage, uartPackageSize);
         break;
       case Stopping:
+        mainContoller.state = MainController_StoppingState();
         break;
     }
-
-    // TODO! Loop
   }
 }
 
@@ -209,7 +221,24 @@ MainStates MainController_StartedState(uint8_t* uartPackage,
     return Started;
   }
 
+  if (Keypad_GetState(mainContoller.keypad, KeyStartStop) == Clicked) {
+    return Stopping;
+  }
+
   return Started;
+}
+
+MainStates MainController_StoppingState() {
+  mainContoller.uart_working = FALSE;
+  UART_Free(mainContoller.uart);
+
+  int32_t usage;
+  PWM_GetBufferUsage(mainContoller.pwm, &usage);
+  if (usage == 0) {
+    PWM_Stop(mainContoller.pwm);
+    return Stopped;
+  }
+  return Stopping;
 }
 
 void HAL_MspInit(void) {
