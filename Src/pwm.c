@@ -1,5 +1,6 @@
 #include "pwm.h"
 
+#include <limits.h>
 #include <math.h>
 #include <stdlib.h>
 
@@ -15,6 +16,7 @@ struct PWM {
   uint32_t freq;
 
   Boolean valueCaptured;
+  uint16_t filter;
   uint8_t buffer[BUFFER_SIZE];
 
   // TMP
@@ -55,6 +57,7 @@ PWM* PWM_Init() {
 
   // TODO! Queue
   g_PWM.valueCaptured = TRUE;
+  g_PWM.filter = 0;
   g_PWM.bufferPos = 0;
   g_PWM.bufferWritePos = 0;
 
@@ -84,11 +87,34 @@ int32_t PWM_SetFreq(PWM* hnd, int32_t freq) {
 }
 
 void PWM_AddWidth(PWM* hnd, uint8_t width) {
-  hnd->buffer[hnd->bufferWritePos] = width * 20 / 100;
-  hnd->bufferWritePos++;
-  hnd->bufferWritePos %= BUFFER_SIZE;
+  // TODO! Check queue overflow
+  int32_t usage = 0;
+  PWM_GetBufferUsage(hnd, &usage);
+  if (usage == 100) {
+    // Overflow filter
 
-  //	__HAL_TIM_SET_COMPARE(&hnd->tim1, TIM_CHANNEL_1, width);
+    uint16_t scaledWidth = (uint16_t)(width)*UINT16_MAX / 256;
+    if (hnd->valueCaptured == TRUE) {  // Reset filter
+      hnd->valueCaptured = FALSE;
+      hnd->filter = scaledWidth;
+    }
+
+    uint32_t kKoff = 1;
+    uint32_t nKoff = 100;
+
+    //                   (nKoff - kKoff)             kKoff
+    // f_(i+1) = f_(i) * ---------------  + new_f * -------
+    //                        nKoff                  nKoffs
+
+    hnd->filter = (uint16_t)((uint32_t)(hnd->filter) * (nKoff - kKoff) / nKoff +
+                             (uint32_t)(scaledWidth)*kKoff / nKoff);
+
+  } else {
+    // TODO! Add to queue
+    hnd->buffer[hnd->bufferWritePos] = width;
+    hnd->bufferWritePos++;
+    hnd->bufferWritePos %= BUFFER_SIZE;
+  }
 }
 
 void PWM_Start(PWM* hnd) { HAL_TIMEx_OCN_Start_IT(&hnd->tim1, TIM_CHANNEL_1); }
@@ -129,7 +155,16 @@ void TIM1_CC_IRQHandler() {
 
   __HAL_TIM_SET_COMPARE(&g_PWM.tim1, TIM_CHANNEL_1,
                         g_PWM.buffer[g_PWM.bufferPos]);
+
+  if (g_PWM.valueCaptured == FALSE) {
+    g_PWM.valueCaptured = TRUE;
+    // TODO! Insert in queue filtered value
+    g_PWM.buffer[g_PWM.bufferWritePos] =
+        (uint16_t)((uint32_t)(g_PWM.filter) * 256 / UINT16_MAX);
+    g_PWM.bufferWritePos++;
+    g_PWM.bufferWritePos %= BUFFER_SIZE;
+  }
+
   g_PWM.bufferPos++;
   g_PWM.bufferPos %= BUFFER_SIZE;
-  g_PWM.valueCaptured = TRUE;
 }
