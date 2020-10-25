@@ -6,17 +6,23 @@
 
 #include "stm32f4xx_hal.h"
 
+/// @ingroup PWM
+/// @{
+
+/// Размер очереди в байтах
 #define BUFFER_SIZE 102400
 
 struct PWM {
+  /// Дескриптор HAL таймера, который создает ШИМ сигнал
   TIM_HandleTypeDef tim1;
+  /// Дескриптор HAL канала, на котором генерируется ШИМ сигнал
   TIM_OC_InitTypeDef chanConfig;
 
-  uint8_t width;
-  uint32_t freq;
-
+  /// При переполнении буфера указывает было ли взято хотя бы 1 значение
   Boolean valueCaptured;
+  /// Текущее значение фильтра значений
   uint16_t filter;
+  /// Буфер, в котором размещается очередь
   uint8_t buffer[BUFFER_SIZE];
 
   // TMP
@@ -24,7 +30,9 @@ struct PWM {
   uint32_t bufferWritePos;
 };
 
+/// Указывает инициализирована ли система
 Boolean g_PWM_initialized = FALSE;
+/// Глобальный объект подсистемы PWM
 PWM g_PWM = {0};
 
 PWM* PWM_Init() {
@@ -51,9 +59,6 @@ PWM* PWM_Init() {
   chanConfig->Pulse = 0;
   if (HAL_TIM_PWM_ConfigChannel(tim1, chanConfig, TIM_CHANNEL_1) != HAL_OK)
     return NULL;
-
-  g_PWM.freq = 1000;
-  g_PWM.width = 0;
 
   // TODO! Queue
   g_PWM.valueCaptured = TRUE;
@@ -133,14 +138,20 @@ void PWM_GetBufferUsage(PWM* hnd, int32_t* usage) {
   }
 }
 
+/**
+ * @brief HAL_TIM_Base_MspInit HAL процедура, используемая для инициализации
+ * таймеров
+ * @details Запускает тактирование TIM1 и GPIOA, а также переводит контакт PA7 в
+ * режим работы с таймером
+ *
+ * @param htim_base дескриптор таймера
+ */
 void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base) {
   if (htim_base->Instance == TIM1) {
     __HAL_RCC_TIM1_CLK_ENABLE();
     __HAL_RCC_GPIOA_CLK_ENABLE();
     GPIO_InitTypeDef GPIO_InitStruct = {0};
-    /**TIM1 GPIO Configuration
-    PA7     ------> TIM1_CH1N
-    */
+
     GPIO_InitStruct.Pin = GPIO_PIN_7;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -150,6 +161,12 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base) {
   }
 }
 
+/**
+ * @brief TIM1_CC_IRQHandler прерывание CC таймера TIM1
+ * @details Устанавливает новое модулирующее значение из очереди. При
+ * переполнении очереди вставляет отфильтрованное значение в очередь так как
+ * прерывание освобождает 1 позицию.
+ */
 void TIM1_CC_IRQHandler() {
   __HAL_TIM_CLEAR_IT(&g_PWM.tim1, TIM_IT_CC1);
 
@@ -168,3 +185,5 @@ void TIM1_CC_IRQHandler() {
   g_PWM.bufferPos++;
   g_PWM.bufferPos %= BUFFER_SIZE;
 }
+
+/// @}
