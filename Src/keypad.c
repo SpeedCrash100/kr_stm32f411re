@@ -1,5 +1,8 @@
 #include "keypad.h"
 
+/// @ingroup Keypad
+/// @{
+
 struct Keypad {
   KeyState keystates[1];
 };
@@ -21,3 +24,5 @@ KeyState Keypad_GetState(Keypad* keypad, KeyButtons key) {
   }
   return Unpressed;
 }
+
+/// @}
