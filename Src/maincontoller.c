@@ -9,23 +9,28 @@
 #include "stm32f4xx_hal.h"
 #include "uart.h"
 
+/// @ingroup MC
+/// @{
+
+#define UART_PACKET_SIZE 10240  /// Размер пакета  UART
+
+/// Глобальный контроллер
 struct {
-  MainStates state;
+  MainStates state;  /// Текущее состояние
 
-  STM32ADC* adc;
-  Display* display;
-  PWM* pwm;
-  UART* uart;
-  Keypad* keypad;
+  STM32ADC* adc;     /// АЦП
+  Display* display;  /// Дисплей
+  PWM* pwm;          /// Генератор ШИМ
+  UART* uart;        /// UART
+  Keypad* keypad;    /// Клавиатура
 
-  Boolean uart_working;
-  Boolean uart_half;
-  Boolean uart_full;
+  Boolean uart_working;  /// Работает ли UART
+  Boolean uart_half;     /// Получена ли половина пакета
+  Boolean uart_full;     /// Получен ли пакет полностью
 
 } mainContoller;
 
 Boolean Init_RCC();
-Boolean Init_IRQ();
 
 MainStates MainController_WaitingState(uint8_t* uartPackage,
                                        int32_t sizeOfUart);
@@ -61,12 +66,23 @@ Boolean MainContoller_Init() {
   return TRUE;
 }
 
+/**
+ * @brief UartHalf функция, вызываемая при приеме половины пакета данных
+ * @details устанавливает флаг uart_half = TRUE
+ */
 void UartHalf() {
   if (mainContoller.uart_working) {
     mainContoller.uart_half = TRUE;
   }
 }
 
+/**
+ * @brief UartFull функция, вызываемая при приеме пакета данных
+ * @details сообщает контролеру, что на следующей итерации необходимо обработать
+ * вторую часть пакета
+ *
+ * @param errored провален ли прием данных
+ */
 void UartFull(Boolean errored) {
   if (!mainContoller.uart_working) return;
 
@@ -88,7 +104,7 @@ void MainContoller_Loop() {
   uint16_t result = 0;
   int32_t bufUsage = 0;
 
-  uint8_t uartPackage[10 * 1024];
+  uint8_t uartPackage[UART_PACKET_SIZE];
   int uartPackageSize = sizeof(uartPackage);
 
   while (TRUE) {
@@ -122,6 +138,12 @@ void MainContoller_Loop() {
   }
 }
 
+/**
+ * @brief Init_RCC настраивает частоту ядра процессора
+ * @return TRUE если успешно
+ *
+ * @remark Частота устанавливается на 50 МГц. Тактирование от внешнего источника
+ */
 Boolean Init_RCC() {
   // Init HAL
   HAL_StatusTypeDef status = HAL_Init();
@@ -166,8 +188,15 @@ Boolean Init_RCC() {
   return TRUE;
 }
 
-Boolean Init_IRQ() { return TRUE; }
-
+/**
+ * @brief MainController_WaitingState функция состояния ожидания
+ * @details На каждом такте запускает прием по UART если не запущено и проверяет
+ * принята ли первая половина пакета; если да, то переход в состояние Started
+ *
+ * @param uartPackage место хранения буфера для UART
+ * @param sizeOfUart размер UART пакета
+ * @return новое состояние контроллера
+ */
 MainStates MainController_WaitingState(uint8_t* uartPackage,
                                        int32_t sizeOfUart) {
   if (!mainContoller.uart_working) {
@@ -194,6 +223,12 @@ MainStates MainController_WaitingState(uint8_t* uartPackage,
   return Waiting;
 }
 
+/**
+ * @brief MainController_StartedState функция запущеного состояния
+ * @param uartPackage место хранения буфера для UART
+ * @param sizeOfUart размер UART пакета
+ * @return новое состояние контроллера
+ */
 MainStates MainController_StartedState(uint8_t* uartPackage,
                                        int32_t sizeOfUart) {
   if (mainContoller.uart_half) {
@@ -228,6 +263,12 @@ MainStates MainController_StartedState(uint8_t* uartPackage,
   return Started;
 }
 
+/**
+ * @brief MainController_StoppingState функция остановки генерации
+ * @details ожидает воспроизведения остатков буфера
+ *
+ * @return новое состояние контроллера
+ */
 MainStates MainController_StoppingState() {
   mainContoller.uart_working = FALSE;
   UART_Free(mainContoller.uart);
@@ -241,9 +282,18 @@ MainStates MainController_StoppingState() {
   return Stopping;
 }
 
+/**
+ * @brief HAL_MspInit инициализация микропроцессора
+ */
 void HAL_MspInit(void) {
   __HAL_RCC_SYSCFG_CLK_ENABLE();
   __HAL_RCC_PWR_CLK_ENABLE();
 }
 
+/**
+ * @brief SysTick_Handler прерывание по SysTick
+ * @details позволяет определить время с момента инициализации
+ */
 void SysTick_Handler(void) { HAL_IncTick(); }
+
+/// @}
