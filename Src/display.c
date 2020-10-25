@@ -5,6 +5,9 @@
 #include "i2c.h"
 #include "ssd1306_driver.h"
 
+/// @ingroup Display
+/// @{
+
 struct Display {
   SSD1306_Driver* drv;
 
@@ -132,3 +135,5 @@ void Display_SetState(Display* hnd, MainStates state) {
 
   SSD1306_Swap(hnd->drv);
 }
+
+/// @}
