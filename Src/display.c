@@ -22,9 +22,12 @@ Display g_Display;
 Display* Display_Init() {
   if (g_Display_initialized) return &g_Display;
 
+  /// Инициализация шины I2C
   I2C* i2c_bus = I2C_Init();
   if (!i2c_bus) return NULL;
 
+  /// Инициализация драйвера SSD1306_Driver с использованием только что
+  /// созданной шины
   g_Display.drv = SSD1306_Init(i2c_bus);
   if (!g_Display.drv) return NULL;
 
@@ -32,16 +35,19 @@ Display* Display_Init() {
   g_Display.displayFreq = 10000;
   g_Display.displayState = Stopped;
 
+  /// Рисуем надпись "Freq:" в левом верхнем углу
   Point p = {0, 0};
   SSD1306_DrawText(g_Display.drv, p, "Freq: ");
   Display_SetFreq(&g_Display, 10000);
 
+  /// Рисуем надпись "Buff: " чуть ниже
   p.y = 32;
   SSD1306_DrawText(g_Display.drv, p, "Buff: ");
   Point p1 = {0, 45}, p2 = {127, 50};
   SSD1306_DrawRectangle(g_Display.drv, p1, p2);
   Display_SetBufferUsage(&g_Display, 10);
 
+  /// Рисуем начальное состояние
   g_Display.displayState = Started;       // Trigger change
   Display_SetState(&g_Display, Stopped);  // Started->Stopped
 

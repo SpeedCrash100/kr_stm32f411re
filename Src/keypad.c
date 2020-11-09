@@ -4,7 +4,7 @@
 /// @{
 
 struct Keypad {
-  KeyState keystates[1];
+  KeyState keystates[KeyButtons_SIZE];
 };
 
 Keypad g_Keypad;

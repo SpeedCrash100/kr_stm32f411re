@@ -34,27 +34,32 @@ Boolean Init_RCC();
 
 MainStates MainController_WaitingState(uint8_t* uartPackage,
                                        int32_t sizeOfUart);
-MainStates MainController_StartedState(uint8_t* uartPackage,
-                                       int32_t sizeOfUart);
+MainStates MainController_StartedState(uint8_t* uartPackage, int32_t sizeOfUart,
+                                       int32_t bufUsage);
 
-MainStates MainController_StoppingState();
+MainStates MainController_StoppingState(int32_t bufUsage);
 
 Boolean MainContoller_Init() {
+  /// Настройка частоты
   if (!Init_RCC()) return FALSE;
-  if (!Init_IRQ()) return FALSE;
 
+  /// Инициализация STM32ADC
   mainContoller.adc = ADC_Init();
   if (mainContoller.adc == NULL) return FALSE;
 
+  /// Инициализация Display
   mainContoller.display = Display_Init();
   if (mainContoller.display == NULL) return FALSE;
 
+  /// Инициализация PWM
   mainContoller.pwm = PWM_Init();
   if (!mainContoller.pwm) return FALSE;
 
+  /// Инициализация UART
   mainContoller.uart = UART_Init();
   if (!mainContoller.uart) return FALSE;
 
+  /// Инициализация Keypad
   mainContoller.keypad = Keypad_Init();
   if (!mainContoller.keypad) return FALSE;
 
@@ -129,10 +134,10 @@ void MainContoller_Loop() {
         break;
       case Started:
         mainContoller.state =
-            MainController_StartedState(uartPackage, uartPackageSize);
+            MainController_StartedState(uartPackage, uartPackageSize, bufUsage);
         break;
       case Stopping:
-        mainContoller.state = MainController_StoppingState();
+        mainContoller.state = MainController_StoppingState(bufUsage);
         break;
     }
   }
@@ -227,10 +232,11 @@ MainStates MainController_WaitingState(uint8_t* uartPackage,
  * @brief MainController_StartedState функция запущеного состояния
  * @param uartPackage место хранения буфера для UART
  * @param sizeOfUart размер UART пакета
+ * @param bufUsage текущая наполненость буфера
  * @return новое состояние контроллера
  */
-MainStates MainController_StartedState(uint8_t* uartPackage,
-                                       int32_t sizeOfUart) {
+MainStates MainController_StartedState(uint8_t* uartPackage, int32_t sizeOfUart,
+                                       int32_t bufUsage) {
   if (mainContoller.uart_half) {
     mainContoller.uart_half = FALSE;
     Display_SetState(mainContoller.display, Started);
@@ -260,22 +266,24 @@ MainStates MainController_StartedState(uint8_t* uartPackage,
     return Stopping;
   }
 
+  if (bufUsage == 0) {
+    return Stopping;
+  }
+
   return Started;
 }
 
 /**
  * @brief MainController_StoppingState функция остановки генерации
  * @details ожидает воспроизведения остатков буфера
- *
+ * @param bufUsage текущая наполненость буфера
  * @return новое состояние контроллера
  */
-MainStates MainController_StoppingState() {
+MainStates MainController_StoppingState(int32_t bufUsage) {
   mainContoller.uart_working = FALSE;
   UART_Free(mainContoller.uart);
 
-  int32_t usage;
-  PWM_GetBufferUsage(mainContoller.pwm, &usage);
-  if (usage == 0) {
+  if (bufUsage == 0) {
     PWM_Stop(mainContoller.pwm);
     return Stopped;
   }

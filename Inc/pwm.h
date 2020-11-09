@@ -17,9 +17,10 @@ typedef struct PWM PWM;
 PWM* PWM_Init();
 
 /**
- * @brief PWM_SetFreq устанавливает целевую частоту генерации ШИМ
- * @param freq целевая частота
- * @return частоту, которая была установлена
+ * @brief PWM_SetFreq устанавливает частоту генерации ШИМ ближайшую возможную к
+ * целевой
+ * @param freq целевая частота в Гц
+ * @return частоту, которая действительно была установлена
  */
 int32_t PWM_SetFreq(PWM*, int32_t freq);
 

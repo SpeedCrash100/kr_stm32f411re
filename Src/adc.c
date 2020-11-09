@@ -8,18 +8,25 @@
 /// @{
 
 struct STM32ADC {
+  /// HAL дескриптор АЦП
   ADC_HandleTypeDef hal_adc_handle;
+  /// HAL дескриптор DMA для АЦП
   DMA_HandleTypeDef hal_dma_handle;
 
+  /// Результат с АЦП
   uint16_t adc_result;
 };
 
+/// Инициализирована ли АЦП
 Boolean g_ADC_initialized = FALSE;
+/// Глобальный дескриптор АЦП
 STM32ADC g_ADC_struct = {0};
 
 STM32ADC* ADC_Init() {
   if (g_ADC_initialized) return &g_ADC_struct;
 
+  /// - Настройка порта PA0 в аналоговый режим. На этом порту расположен 0 канал
+  /// ADC1
   // Configuring for PA0 (ADC1 Channel 0)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   GPIO_InitTypeDef gpioInitStruct = {0};
@@ -30,6 +37,11 @@ STM32ADC* ADC_Init() {
 
   // Init ADC1 subsystem of MC
 
+  /// - Настройка АЦП:
+  ///     - Режим работы: непрерывный
+  ///     - Запуск по запросу от программы
+  ///     - Данные расположены справа в буфере
+  ///     - Количество битов: 12
   ADC_HandleTypeDef* adc = &g_ADC_struct.hal_adc_handle;
   adc->Instance = ADC1;
   adc->Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV8;
@@ -47,6 +59,7 @@ STM32ADC* ADC_Init() {
     return NULL;
   }
 
+  /// Настройка 0 канала АЦП с максимальным размером выборки
   ADC_ChannelConfTypeDef sConfig = {0};
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
@@ -55,6 +68,7 @@ STM32ADC* ADC_Init() {
     return NULL;
   }
 
+  /// Запуск DMA
   HAL_ADC_Start_DMA(adc, (uint32_t*)(&g_ADC_struct.adc_result),
                     sizeof(g_ADC_struct.adc_result));
 

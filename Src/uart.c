@@ -32,6 +32,12 @@ UART* UART_Init() {
 
   UART_HandleTypeDef* uart = &g_UART.hal_uart;
 
+  /// - Настройка UART
+  ///     - Интерфейс USART2
+  ///     - Скорость: 115200
+  ///     - Длина слова: 8 бит
+  ///     - Число стопбитов: 2
+  ///     - Биты четности - нет
   uart->Instance = USART2;
   uart->Init.BaudRate = 115200;
   uart->Init.WordLength = USART_WORDLENGTH_8B;
@@ -40,12 +46,16 @@ UART* UART_Init() {
   uart->Init.Mode = USART_MODE_TX_RX;
   uart->Init.HwFlowCtl = UART_HWCONTROL_NONE;
   uart->Init.OverSampling = UART_OVERSAMPLING_16;
+
   if (HAL_UART_Init(uart) != HAL_OK) return NULL;
 
+  /// - Включаем прерывание по событию от USART2
   HAL_NVIC_SetPriority(USART2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(USART2_IRQn);
 
   USART2->CR3 |= USART_CR3_ONEBIT;  // Ignore noises!
+
+  /// - Явная установка атрибутов в начальное состояниее
 
   g_UART.acquired = FALSE;
   g_UART.currentHandlerHalf = NULL;
@@ -59,8 +69,11 @@ UART* UART_Init() {
 Boolean UART_StartReceive(UART* hnd, UARTReadHalfCallback callbackHalf,
                           UARTReadFullCallback callbackFull, uint8_t* buffer,
                           uint32_t size) {
+  /// Проверка того, что доступ был получен и сейчас не выполняется другой
+  /// операции
   if (hnd->in_progress || !hnd->acquired) return FALSE;
 
+  /// Запуск приема в режиме DMA
   hnd->currentHandlerHalf = callbackHalf;
   hnd->currentHandlerFull = callbackFull;
   hnd->in_progress = TRUE;
@@ -71,12 +84,17 @@ Boolean UART_StartReceive(UART* hnd, UARTReadHalfCallback callbackHalf,
 }
 
 Boolean UART_Acquire(UART* hnd) {
+  /// Если кто-то уже получил доступ, то вернуть FALSE; иначе получить доступ и
+  /// вернуть TRUE
   if (hnd->acquired) return FALSE;
   hnd->acquired = TRUE;
   return TRUE;
 }
 
-void UART_Free(UART* hnd) { hnd->acquired = FALSE; }
+void UART_Free(UART* hnd) {
+  /// Всегда освобождать доступ
+  hnd->acquired = FALSE;
+}
 
 /**
  * @brief HAL_UART_MspInit инициализирует необходимые элементы для работы UART
@@ -84,9 +102,11 @@ void UART_Free(UART* hnd) { hnd->acquired = FALSE; }
  */
 void HAL_UART_MspInit(UART_HandleTypeDef* huart) {
   if (huart->Instance == USART2) {
+    /// Включение тактирования USART2 и GPIOA
     __HAL_RCC_USART2_CLK_ENABLE();
     __HAL_RCC_GPIOA_CLK_ENABLE();
 
+    /// Настройка портов PA2, PA3  для работы с USART2
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     GPIO_InitStruct.Pin = GPIO_PIN_2 | GPIO_PIN_3;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -95,6 +115,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart) {
     GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+    /// Включение DMA1 для работы с USART2
     __HAL_RCC_DMA1_CLK_ENABLE();
     DMA_HandleTypeDef* uart_dma = &g_UART.hal_dma_uart;
 
@@ -111,6 +132,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart) {
 
     __HAL_LINKDMA(huart, hdmarx, *uart_dma);
 
+    /// Включение прерывания по DMA1 потока 5
     HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
   }

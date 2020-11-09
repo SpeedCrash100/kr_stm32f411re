@@ -66,6 +66,8 @@ SSD1306_Driver* SSD1306_Init(I2C* i2c_hnd) {
 
   HAL_Delay(100);  // Recommended delay for display starting up
   // Set Power Reset for normal screen operation
+  /// Настройка порта PA8 для вывода постоянной логической единицы. Необходимо,
+  /// что бы дисплей не сбрасывался
   __HAL_RCC_GPIOA_CLK_ENABLE();
   GPIO_InitTypeDef init = {0};
   init.Pin = GPIO_PIN_8;
@@ -74,6 +76,14 @@ SSD1306_Driver* SSD1306_Init(I2C* i2c_hnd) {
   HAL_GPIO_Init(GPIOA, &init);
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
   HAL_Delay(100);
+
+  /// Настраиваем дисплей
+  /// Отключаем его перед начальной настройкой\n
+  /// Координатная сетка имеет начало координат в левом верхнем углу\n
+  /// 1 в видеопамяти - точка рисуется на экране\n
+  /// Режим адресации - горизонтальный(При получении данных указатель смещается
+  /// на байт справа, но если справа ничего нет, то переход на новую строку)
+  ///
 
   SendCmd(0xAE); /*display off*/
   SendCmd(0x20);
@@ -114,7 +124,10 @@ SSD1306_Driver* SSD1306_Init(I2C* i2c_hnd) {
   SendCmd(0x8D); /*set charge pump disable*/
   SendCmd(0x14);
 
+  /// Включение экрана
   SendCmd(0xAF); /*display ON*/
+
+  /// Заполнение буфера нулями и отрисовка пустого экрана
 
   memset(g_SSD1306_Driver.renderBuffer, 0,
          sizeof(g_SSD1306_Driver.renderBuffer));

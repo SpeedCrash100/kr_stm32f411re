@@ -9,20 +9,20 @@
 typedef struct Keypad Keypad;
 /// Состояния кнопок, допустимые системой
 typedef enum {
-  Unpressed = 0,  /// Кнопка не нажата или нажата, но более 1 такта
-  Clicked         /// Кнопка только что нажата
+  Unpressed = 0,  ///< Кнопка не нажата или нажата, но более 1 такта
+  Clicked         ///< Кнопка только что нажата
 } KeyState;
 
 /// Все кнопки в системе
 typedef enum {
-  KeyStartStop = 0,  /// Кнопка Старт/Стоп
+  KeyStartStop = 0,  ///< Кнопка Старт/Стоп
 
-  KeyButtons_SIZE  /// Количество кнопок
+  KeyButtons_SIZE  ///< Количество кнопок
 } KeyButtons;
 
 /**
  * @brief Keypad_Init инициализирует обработку нажатия кнопок
- * @return дескриптор клавиатуры
+ * @return дескриптор клавиатуры или NULL в случае ошибки
  */
 Keypad* Keypad_Init();
 

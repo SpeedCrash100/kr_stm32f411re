@@ -15,7 +15,7 @@ typedef void (*UARTReadFullCallback)(Boolean);
 
 /**
  * @brief UART_Init инициализация UART
- * @return дескриптор UART
+ * @return дескриптор UART или NULL в случае ошибки
  */
 UART* UART_Init();
 
@@ -28,6 +28,9 @@ UART* UART_Init();
  * @param data указатель на место, где будут находиться данные
  * @param size размер посылки
  * @return TRUE если запуск приема успешен
+ *
+ * @remark функция fullCallback имеет аргумент типа Boolean. Если он равен TRUE,
+ * то не следует считывать данные так как в процессе передачи произошла ошибка.
  */
 Boolean UART_StartReceive(UART*, UARTReadHalfCallback halfCallback,
                           UARTReadFullCallback fullCallback, uint8_t* data,
@@ -36,10 +39,6 @@ Boolean UART_StartReceive(UART*, UARTReadHalfCallback halfCallback,
 /**
  * @brief UART_Acquire получение доступа к работе с интерфейсом
  * @return TRUE если доступ удалось получить и FALSE иначе
- *
- * @remark Фактически можно работать и без получения доступа, но использования
- * этого метода позволит убедится, что интерфейсом сейчас никто не пользуется и
- * можно безопасно использовать его
  */
 Boolean UART_Acquire(UART*);
 

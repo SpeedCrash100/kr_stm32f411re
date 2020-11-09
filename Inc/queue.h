@@ -5,55 +5,66 @@
 
 typedef struct Queue Queue;
 
+/// Очередь
 struct Queue {
-	uint8_t* buffer;
-	uint32_t size;
-	uint32_t capacity;
+  uint8_t* buffer;
+  uint32_t size;
+  uint32_t capacity;
 
-	uint32_t frontOfQueue;
-	uint32_t backOfQueue;
-
+  uint32_t frontOfQueue;
+  uint32_t backOfQueue;
 };
 
 /**
- * Creates empty static byte queue.
- * \param buffer The buffer is used for storing bytes
- * \param capacity The max usage of buffer
- * \return filled Queue structure
+ * Создает пустую очередь
+ * @param buffer указатель на буфер, используемый для хранения значений
+ * @param capacity максимально допустимый размер очереди
+ * @return Заполненую структуру Queue
  */
 Queue Queue_Create(uint8_t* buffer, uint32_t capacity);
 
 /**
- * Pushes byte to queue
- * \param queue The byte is tried to insert in this queue
- * \param value The byte value
- * \return TRUE if byte has been inserted, FALSE otherwise
+ * Помещает байт в очередь
+ * @param queue дескриптор Queue
+ * @param value байт, который необходимо поместить
+ * @return TRUE - если байт помещен; FALSE - иначе
  */
 Boolean Queue_Push(Queue* queue, uint8_t value);
 
 /**
- * Pops byte from queue
- * \param queue The byte is tried to pop from this queue
- * \param value The pointer to place where value should be stored
- * \return TRUE if byte has been popped, FALSE otherwise
+ * Извлекает байт из очереди
+ * @param queue дескриптор Queue
+ * @param value указатель, куда будет записан байт из очереди
+ * @return TRUE - если байт извлечен; FALSE - иначе
  */
 Boolean Queue_Pop(Queue* queue, uint8_t* value);
 
-
-// Checks if queue is empty
+/**
+ * @brief Queue_Empty проверяет пуста ли очередь
+ * @param queue дескриптор Queue
+ * @return TRUE - если очередь пуста; FALSE - иначе
+ */
 Boolean Queue_Empty(Queue* queue);
 
-// Checks if queue has no space for storing new values
+/**
+ * @brief Queue_Overflowed проверяет переполнена ли очередь
+ * @param queue дескриптор Queue
+ * @return TRUE - если очередь переполнена; FALSE - иначе
+ */
 Boolean Queue_Overflowed(Queue* queue);
 
-// Returns used size of queue
+/**
+ * @brief Queue_Size возвращает занимаемый размер очередью
+ * @param queue дескриптор Queue
+ * @return занимаемый размер очередью
+ */
 uint32_t Queue_Size(Queue* queue);
 
-// Returns max capacity of queue
+/**
+ * @brief Queue_Capacity возвращает максимальную вместимость очереди
+ * @param queue дескриптор Queue
+ * @return вместимость очереди
+ */
 uint32_t Queue_Capacity(Queue* queue);
-
-
-
-
 
 #endif /* QUEUE_H_ */

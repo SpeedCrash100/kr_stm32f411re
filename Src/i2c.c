@@ -65,18 +65,26 @@ I2C* I2C_Init() {
 }
 
 Boolean I2C_Acquire(I2C* hnd) {
+  /// Если кто-то уже получил доступ, то вернуть FALSE; иначе получить доступ и
+  /// вернуть TRUE
   if (hnd->acquired) return FALSE;
   hnd->acquired = TRUE;
   return TRUE;
 }
 
-void I2C_Free(I2C* hnd) { hnd->acquired = FALSE; }
+void I2C_Free(I2C* hnd) {
+  /// Всегда освобождать
+  hnd->acquired = FALSE;
+}
 
 Boolean I2C_SendCommand(I2C* hnd, uint8_t cmd) {
+  /// Проверка того, что доступ был получен и сейчас не выполняется другой
+  /// операции
   if (!hnd->acquired || hnd->in_progress) return FALSE;
 
   hnd->in_progress = TRUE;
 
+  /// Отправить команду
   HAL_StatusTypeDef status = HAL_I2C_Mem_Write(
       &g_I2C.hal_i2c, g_I2C.address, 0x00, I2C_MEMADD_SIZE_8BIT, &cmd, 1, 1000);
   hnd->in_progress = FALSE;
@@ -89,11 +97,14 @@ Boolean I2C_SendCommand(I2C* hnd, uint8_t cmd) {
 
 Boolean I2C_SendData(I2C* hnd, I2CCallback callback, uint8_t* data,
                      uint16_t size) {
+  /// Проверка того, что доступ был получен и сейчас не выполняется другой
+  /// операции
   if (!hnd->acquired || hnd->in_progress) return FALSE;
 
   hnd->in_progress = TRUE;
   hnd->callback = callback;
 
+  /// Отправка команды используя модель прерываний
   HAL_StatusTypeDef status = HAL_I2C_Mem_Write_IT(
       &g_I2C.hal_i2c, g_I2C.address, 0x40, I2C_MEMADD_SIZE_8BIT, data, size);
   if (status != HAL_OK) {
