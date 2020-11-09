@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include "queue.h"
 #include "stm32f4xx_hal.h"
 
 /// @ingroup PWM
@@ -24,10 +25,8 @@ struct PWM {
   uint16_t filter;
   /// Буфер, в котором размещается очередь
   uint8_t buffer[BUFFER_SIZE];
-
-  // TMP
-  uint32_t bufferPos;
-  uint32_t bufferWritePos;
+  /// Надстройка над буфером - очередь
+  Queue queue;
 };
 
 /// Указывает инициализирована ли система
@@ -41,6 +40,12 @@ PWM* PWM_Init() {
   TIM_HandleTypeDef* tim1 = &g_PWM.tim1;
   TIM_OC_InitTypeDef* chanConfig = &g_PWM.chanConfig;
 
+  /// - Инициализация TIM1
+  ///   - Пределитель: 38, меняется в процессе работы программы согласно
+  ///   запросам пользователя.
+  ///   - Таймер настроен на увеличение счетчика
+  ///   - Сброс счетчика происходит раз в 256 тактов
+
   tim1->Instance = TIM1;
   tim1->Init.Prescaler = 38;
   tim1->Init.CounterMode = TIM_COUNTERMODE_UP;
@@ -51,8 +56,12 @@ PWM* PWM_Init() {
 
   if (HAL_TIM_PWM_Init(tim1) != HAL_OK) return NULL;
 
+  /// - Включение Capture-Compare прерывания
+
   HAL_NVIC_SetPriority(TIM1_CC_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(TIM1_CC_IRQn);
+
+  /// Настройка 1 канала на режим работы ШИМ1. Полярность высокая.
 
   chanConfig->OCMode = TIM_OCMODE_PWM1;
   chanConfig->OCPolarity = TIM_OCPOLARITY_HIGH;
@@ -60,11 +69,11 @@ PWM* PWM_Init() {
   if (HAL_TIM_PWM_ConfigChannel(tim1, chanConfig, TIM_CHANNEL_1) != HAL_OK)
     return NULL;
 
-  // TODO! Queue
+  /// - Инициализация очереди и фильтра
+
   g_PWM.valueCaptured = TRUE;
   g_PWM.filter = 0;
-  g_PWM.bufferPos = 0;
-  g_PWM.bufferWritePos = 0;
+  g_PWM.queue = Queue_Create(g_PWM.buffer, sizeof(g_PWM.buffer));
 
   g_PWM_initialized = TRUE;
 
@@ -72,6 +81,8 @@ PWM* PWM_Init() {
 }
 
 int32_t PWM_SetFreq(PWM* hnd, int32_t freq) {
+  /// - Поиск такого пределителя, чтобы отклонение от целевой частоты было
+  /// минимальным
   uint32_t prescal = 1;
   uint32_t realFreq = SystemCoreClock / ((256 + 1) * (prescal + 1));
   uint32_t delta = abs(freq - (int)realFreq);
@@ -87,15 +98,16 @@ int32_t PWM_SetFreq(PWM* hnd, int32_t freq) {
     }
   }
 
+  /// Установка пределителя в настройки таймера
   __HAL_TIM_SET_PRESCALER(&hnd->tim1, prescal);
   return realFreq = SystemCoreClock / ((256 + 1) * (prescal + 1));
 }
 
 void PWM_AddWidth(PWM* hnd, uint8_t width) {
-  // TODO! Check queue overflow
-  int32_t usage = 0;
-  PWM_GetBufferUsage(hnd, &usage);
-  if (usage == 100) {
+  /// Если в очереди есть место, то просто добавить полученный байт в неё. В
+  /// противном случае использовать бегущее среднее с коэффициентом 0.1
+
+  if (Queue_Overflowed(&hnd->queue)) {
     // Overflow filter
 
     uint16_t scaledWidth = (uint16_t)(width)*UINT16_MAX / 256;
@@ -104,7 +116,7 @@ void PWM_AddWidth(PWM* hnd, uint8_t width) {
       hnd->filter = scaledWidth;
     }
 
-    uint32_t kKoff = 1;
+    uint32_t kKoff = 10;
     uint32_t nKoff = 100;
 
     //                   (nKoff - kKoff)             kKoff
@@ -115,10 +127,7 @@ void PWM_AddWidth(PWM* hnd, uint8_t width) {
                              (uint32_t)(scaledWidth)*kKoff / nKoff);
 
   } else {
-    // TODO! Add to queue
-    hnd->buffer[hnd->bufferWritePos] = width;
-    hnd->bufferWritePos++;
-    hnd->bufferWritePos %= BUFFER_SIZE;
+    Queue_Push(&hnd->queue, width);
   }
 }
 
@@ -129,13 +138,10 @@ void PWM_Stop(PWM* hnd) { HAL_TIMEx_OCN_Stop_IT(&hnd->tim1, TIM_CHANNEL_1); }
 void PWM_GetBufferUsage(PWM* hnd, int32_t* usage) {
   if (usage == NULL) return;
 
-  // TODO! Use queue size
-  if (hnd->bufferPos <= hnd->bufferWritePos) {
-    *usage = (hnd->bufferWritePos - hnd->bufferPos) * 100 / BUFFER_SIZE;
-  } else {
-    *usage = (BUFFER_SIZE - (hnd->bufferPos - hnd->bufferWritePos)) * 100 /
-             BUFFER_SIZE;
-  }
+  uint32_t size = Queue_Size(&hnd->queue);
+  uint32_t capacity = Queue_Capacity(&hnd->queue);
+
+  *usage = size * 100 / capacity;
 }
 
 /**
@@ -170,20 +176,19 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base) {
 void TIM1_CC_IRQHandler() {
   __HAL_TIM_CLEAR_IT(&g_PWM.tim1, TIM_IT_CC1);
 
-  __HAL_TIM_SET_COMPARE(&g_PWM.tim1, TIM_CHANNEL_1,
-                        g_PWM.buffer[g_PWM.bufferPos]);
-
-  if (g_PWM.valueCaptured == FALSE) {
-    g_PWM.valueCaptured = TRUE;
-    // TODO! Insert in queue filtered value
-    g_PWM.buffer[g_PWM.bufferWritePos] =
-        (uint16_t)((uint32_t)(g_PWM.filter) * 256 / UINT16_MAX);
-    g_PWM.bufferWritePos++;
-    g_PWM.bufferWritePos %= BUFFER_SIZE;
+  uint8_t nextWidth = 0;
+  if (Queue_Pop(&g_PWM.queue, &nextWidth)) {
+    __HAL_TIM_SET_COMPARE(&g_PWM.tim1, TIM_CHANNEL_1, nextWidth);
   }
 
-  g_PWM.bufferPos++;
-  g_PWM.bufferPos %= BUFFER_SIZE;
+  if (g_PWM.valueCaptured == FALSE) {
+    uint8_t filteredWidth =
+        (uint8_t)((uint32_t)(g_PWM.filter) * 256 / UINT16_MAX);
+
+    if (Queue_Push(&g_PWM.queue, filteredWidth)) {
+      g_PWM.valueCaptured = TRUE;
+    }
+  }
 }
 
 /// @}
