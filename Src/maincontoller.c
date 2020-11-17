@@ -216,13 +216,16 @@ MainStates MainController_WaitingState(uint8_t* uartPackage,
 
   if (mainContoller.uart_half) {
     mainContoller.uart_half = FALSE;
-    Display_SetState(mainContoller.display, Started);
     for (int i = 0; i < sizeOfUart / 2; i++) {
       PWM_AddWidth(mainContoller.pwm, uartPackage[i]);
     }
 
     PWM_Start(mainContoller.pwm);
     return Started;
+  }
+
+  if (Keypad_GetState(mainContoller.keypad, KeyStartStop) == Clicked) {
+    return Stopped;
   }
 
   return Waiting;
@@ -239,10 +242,10 @@ MainStates MainController_StartedState(uint8_t* uartPackage, int32_t sizeOfUart,
                                        int32_t bufUsage) {
   if (mainContoller.uart_half) {
     mainContoller.uart_half = FALSE;
-    Display_SetState(mainContoller.display, Started);
     for (int i = 0; i < sizeOfUart / 2; i++) {
       PWM_AddWidth(mainContoller.pwm, uartPackage[i]);
     }
+    return Started;
   }
 
   if (mainContoller.uart_full) {
