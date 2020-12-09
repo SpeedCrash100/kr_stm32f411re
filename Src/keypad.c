@@ -13,7 +13,6 @@ struct Keypad {
 Keypad g_Keypad;
 
 Keypad* Keypad_Init() {
-  // TODO! Init
   __HAL_RCC_GPIOC_CLK_ENABLE();
   GPIO_InitTypeDef gpio = {0};
   gpio.Pin = GPIO_PIN_1;
