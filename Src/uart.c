@@ -5,6 +5,7 @@
 /// @ingroup UART
 /// @{
 
+/// Дескриптор %UART
 struct UART {
   /// Получен ли доступ кем-то
   Boolean acquired;

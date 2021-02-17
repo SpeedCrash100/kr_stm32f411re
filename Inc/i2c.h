@@ -12,7 +12,7 @@ typedef struct I2C I2C;
 typedef void (*I2CCallback)(void);
 
 /**
- * @brief I2C_Init инициализирует шину I2C
+ * @brief I2C_Init инициализирует шину %I2C
  * @details Подготавливает подсистему I2C1 к работе на пинах PB8, PB9 на
  * скорости 400кГц
  *

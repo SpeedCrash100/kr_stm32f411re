@@ -7,12 +7,12 @@ typedef struct Queue Queue;
 
 /// Очередь
 struct Queue {
-  uint8_t* buffer;
-  uint32_t size;
-  uint32_t capacity;
+  uint8_t* buffer;    /// Буфер для хранения байтов
+  uint32_t size;      /// Используемый размер очереди
+  uint32_t capacity;  /// Максимальный размер очереди
 
-  uint32_t frontOfQueue;
-  uint32_t backOfQueue;
+  uint32_t frontOfQueue;  /// Позиция начала очереди
+  uint32_t backOfQueue;   /// Позиция конца очереди
 };
 
 /**

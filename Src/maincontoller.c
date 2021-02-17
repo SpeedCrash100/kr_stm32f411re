@@ -198,8 +198,8 @@ Boolean Init_RCC() {
  * @details На каждом такте запускает прием по UART если не запущено и проверяет
  * принята ли первая половина пакета; если да, то переход в состояние Started
  *
- * @param uartPackage место хранения буфера для UART
- * @param sizeOfUart размер UART пакета
+ * @param uartPackage место хранения буфера для %UART
+ * @param sizeOfUart размер %UART пакета
  * @return новое состояние контроллера
  */
 MainStates MainController_WaitingState(uint8_t* uartPackage,
@@ -233,8 +233,8 @@ MainStates MainController_WaitingState(uint8_t* uartPackage,
 
 /**
  * @brief MainController_StartedState функция запущеного состояния
- * @param uartPackage место хранения буфера для UART
- * @param sizeOfUart размер UART пакета
+ * @param uartPackage место хранения буфера для %UART
+ * @param sizeOfUart размер %UART пакета
  * @param bufUsage текущая наполненость буфера
  * @return новое состояние контроллера
  */

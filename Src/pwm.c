@@ -13,6 +13,7 @@
 /// Размер очереди в байтах
 #define BUFFER_SIZE 102400
 
+/// Дескриптор таймера, используемый для генерации ШИМ сигнала
 struct PWM {
   /// Дескриптор HAL таймера, который создает ШИМ сигнал
   TIM_HandleTypeDef tim1;
@@ -61,7 +62,7 @@ PWM* PWM_Init() {
   HAL_NVIC_SetPriority(TIM1_CC_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(TIM1_CC_IRQn);
 
-  /// Настройка 1 канала на режим работы ШИМ1. Полярность высокая.
+  /// - Настройка 1 канала на режим работы ШИМ1. Полярность высокая.
 
   chanConfig->OCMode = TIM_OCMODE_PWM1;
   chanConfig->OCPolarity = TIM_OCPOLARITY_HIGH;

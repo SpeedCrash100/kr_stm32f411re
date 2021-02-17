@@ -8,11 +8,16 @@
 /// @ingroup Display
 /// @{
 
+/// Интерфейс на дисплее
 struct Display {
+  /// Драйвер дисплея
   SSD1306_Driver* drv;
 
+  /// Отображаемая частота генерации ШИМ
   int32_t displayFreq;
+  /// Отображаемая заполненость буфера
   int32_t bufferUsage;
+  /// Отображаемое состояние системы
   MainStates displayState;
 };
 

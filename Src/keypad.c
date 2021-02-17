@@ -5,6 +5,7 @@
 /// @ingroup Keypad
 /// @{
 
+/// Состояние клавиатуры
 struct Keypad {
   KeyState keystates[KeyButtons_SIZE];
   uint32_t timePressed[KeyButtons_SIZE];

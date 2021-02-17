@@ -5,6 +5,7 @@
 /// @ingroup I2C
 /// @{
 
+/// Дескриптор шины %I2C
 struct I2C {
   /// Получен ли доступ к шине кем-то
   Boolean acquired;

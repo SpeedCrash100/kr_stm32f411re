@@ -14,13 +14,13 @@ typedef void (*UARTReadHalfCallback)(void);
 typedef void (*UARTReadFullCallback)(Boolean);
 
 /**
- * @brief UART_Init инициализация UART
+ * @brief UART_Init инициализация %UART
  * @return дескриптор UART или NULL в случае ошибки
  */
 UART* UART_Init();
 
 /**
- * @brief UART_StartReceive принимает данные по интерфейсу UART
+ * @brief UART_StartReceive принимает данные по интерфейсу %UART
  *
  * @param halfCallback функция, вызываемая при приеме первой половины посылки
  * @param fullCallback функция, вызываемая при приеме второй половины посылки

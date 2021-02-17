@@ -7,6 +7,7 @@
 /// @ingroup ADC
 /// @{
 
+/// Дескриптор АЦП
 struct STM32ADC {
   /// HAL дескриптор АЦП
   ADC_HandleTypeDef hal_adc_handle;
